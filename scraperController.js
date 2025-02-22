@@ -23,7 +23,7 @@ class ScraperController {
         scraperConfig.type.forEach(type => {
             switch (type) {
                 case 'kroger': 
-                    const process = spawn('node', ['scripts/kroger.js'])
+                    const process = spawn('bsh', ['scraper.sh', 'kroger'])
                     process.stderr.on('data', (data) => {
                         console.log(data.toString())
                     })
