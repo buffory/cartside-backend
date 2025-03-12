@@ -1,4 +1,4 @@
-#!/home/jacob/Documents/projects/cartside/cartside-app/cartside-backend/scripts/bin/python3
+#!/home/jacob/cartside-backend/scripts/bin/python
 # -*- coding: utf-8 -*-
 import re
 import sys
