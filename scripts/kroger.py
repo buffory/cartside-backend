@@ -1,6 +1,5 @@
 import os
 import asyncio
-from aiohttp._websocket.reader import WebSocketDataQueue
 import json
 from nodriver import *
 import aiohttp
@@ -20,11 +19,11 @@ test_query = "milk"
 
 async def main():
     browser = await start(headless=True)
-    version = browser.get_version()
+
     try:
         await browser.get('https://www.kroger.com/search?query=milk&searchType=default_search')
         tab = browser.main_tab
-        tab.add_handler(uc.cdp.network.ResponseReceived, receive_handler)
+        tab.add_handler(cdp.network.ResponseReceived, receive_handler)
         await tab.sleep(10)
 
         products = []
