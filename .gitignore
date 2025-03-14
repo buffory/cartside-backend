@@ -1,4 +1,5 @@
 /node_modules
-/scripts/include
-/scripts/lib
-/scripts/lib64
+src/include
+src/lib
+src/lib64
+src/bin
