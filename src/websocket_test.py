@@ -15,6 +15,7 @@ async def test_websockets():
 
         eval_cmd = {
                 "id": 2,
+
                 "method": "Runtime.evaluate",
                 "params": {
                     "expression": "navigator.userAgent",
