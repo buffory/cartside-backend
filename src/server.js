@@ -10,6 +10,6 @@ const app = express()
 
 app.listen(port, async () => {
     const scraper = new Scraper('queue.json');
-    scraper.start()
+    await scraper.start()
     console.log(`Cartside backend listening on ${port}`)
 })
