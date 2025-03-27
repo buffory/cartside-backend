@@ -3,4 +3,4 @@ src/include
 src/lib
 src/lib64
 src/bin
-src/chrome-linux
+src/include/chrome-linux

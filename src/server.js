@@ -1,6 +1,7 @@
 import express from 'express'
 import dotenv from 'dotenv'
-import Scraper from './scraper.js'
+
+import Cluster from './lib/Cluster.js';
 
 dotenv.config()
 
@@ -9,7 +10,7 @@ const app = express()
 
 
 app.listen(port, async () => {
-    const scraper = new Scraper('queue.json');
-    await scraper.start()
+    const cluster = new Cluster();
+    await cluster.init();
     console.log(`Cartside backend listening on ${port}`)
 })
