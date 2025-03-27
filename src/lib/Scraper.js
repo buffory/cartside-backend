@@ -17,6 +17,13 @@ class Scraper {
         await fs.appendFile(`${this.id}.log`, data);
     }
 
+    async init() {
+        await this.init_browser({ chromium_path: 'include/chrome-linux/chrome',
+                                  user_data_dir: `${this.id}-tmp` });
+        await this.init_CDP();
+    }
+
+
     async init_browser({ chromium_path, user_data_dir }) {
         const browser = spawn(chromium_path, [
             `--remote-debugging-port=${this.port}`,
@@ -46,38 +53,24 @@ class Scraper {
         this.log(`CDP initiated`);
     }
 
-    async goto({ url }) {
-        await this.client.Page.navigate({ url });
-        await this.client.Page.loadEventFired();
-        this.log(`${url} loaded`);
-    }
-
-    async intercept_request({ target, interceptedRequests }) {
-        
-    }
-
     async intercept_urls({ target, urls }) {
         const requests = [];
 
         await this.client.Network.setRequestInterception({ patterns: [{ urlPattern: '*' }] });
-
-        this.client.Network.requestIntercepted(({ interceptionId, request }) => {
+        this.client.Network.requestIntercepted(async ({ interceptionId, request}) => {
             if (request.url.includes(target)) {
                 requests.push(request);
-                this.log(`${request.url} intercepted`);
             }
-            this.client.Network.continueInterceptedRequest({ interceptionId });
+            await this.client.Network.continueInterceptedRequest({ interceptionId });
         });
 
-        this.intercepting = true;
-
         for (const url of urls) {
-            await this.goto({ url });
+            await this.client.Page.navigate({ url });
+            await this.client.Page.loadEventFired();
         }
 
-        this.client.Network.setRequestInterception({ patterns: [{ urlPattern: '*' }] });
-        this.intercepting = false;
-        this.log(`${requests.length} intercepted for ${target}`);
+        console.log(requests);
+        return requests;
     }
 }
 
