@@ -61,6 +61,7 @@ class Scraper {
             if (request.url.includes(target)) {
                 requests.push(request);
             }
+            await this.log(`${request.url} intercepted}`);
             await this.client.Network.continueInterceptedRequest({ interceptionId });
         });
 
