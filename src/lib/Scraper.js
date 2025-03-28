@@ -27,7 +27,9 @@ class Scraper {
     async init_browser({ chromium_path, user_data_dir }) {
         const browser = spawn(chromium_path, [
             `--remote-debugging-port=${this.port}`,
-            `--user-data-dir=${user_data_dir}`
+            `--incognito`,
+            `--disk-cache-dir=/dev/null`
+
         ]);
 
         while (1) {
@@ -37,7 +39,7 @@ class Scraper {
                     this.browser = browser;
                     break;
                 }
-            } catch {
+          } catch {
                 await new Promise(resolve => setTimeout(resolve, 500));
             }
         }
@@ -57,13 +59,39 @@ class Scraper {
         const requests = [];
 
         await this.client.Network.setRequestInterception({ patterns: [{ urlPattern: '*' }] });
+
         this.client.Network.requestIntercepted(async ({ interceptionId, request}) => {
+                
+            const modHeaders = request.headers;
+            modHeaders['sec-ch-ua'] = '" Not A;Brand";v="99", "Chromium";v="96", "Microsoft Edge";v="96"';
+            modHeaders['sec-ch-ua-platform'] = '"Windows"';
+
             if (request.url.includes(target)) {
-                requests.push(request);
+                requests.push({...request, headers: modHeaders});
             }
-            await this.log(`${request.url} intercepted}`);
-            await this.client.Network.continueInterceptedRequest({ interceptionId });
+            await this.log(`${request.url} intercepted\n ${JSON.stringify(modHeaders)}`);
+            await this.client.Network.continueInterceptedRequest({ interceptionId, headeons: modHeaders });
         });
+        
+         this.client.Network.responseReceived(async ({ requestId, response }) => {
+             this.log(JSON.stringify(response));
+            const contentType = response.headers['content-type'] || response.headers['Content-Type'] || '';
+            if (contentType.includes('application/json')) {
+                try {
+                    const { body, base64Encoded } = await this.client.Network.getResponseBody({ requestId });
+                    const decodedBody = base64Encoded ? Buffer.from(body, 'base64').toString('utf8') : body;
+                    jsonResponses.push({
+                        url: response.url,
+                        body: JSON.parse(decodedBody), // Parse JSON for easier use
+                        headers: response.headers
+                    });
+                    this.log(`Intercepted JSON response from ${response.url}`);
+                } catch (error) {
+                    this.log(`Failed to get JSON body for ${response.url}: ${error.message}`);
+                }
+            }
+        });
+
 
         for (const url of urls) {
             await this.client.Page.navigate({ url });

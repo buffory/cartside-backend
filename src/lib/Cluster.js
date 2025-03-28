@@ -1,13 +1,14 @@
-import Walmart from './Walmart.js'
+import Publix from './Publix.js'
+import fs from 'fs';
 
 class Cluster {
     constructor() {
-        this.Walmart = new Walmart({ port: 9222  });
+        this.Publix = new Publix({ port: 9222  });
     }
 
     async init() {
-        await this.Walmart.init();
-        await this.Walmart.intercept_query({ query: 'milk' });
+        const res = await this.Publix.query({ query: 'water' });
+        fs.writeFile('res.txt', res, error => console.error(error));
     }
 }
 
