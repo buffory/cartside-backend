@@ -1,4 +1,4 @@
-import Scraper from './Scraper.js'
+import Scraper from './Scraper.js';
 import { HttpsProxyAgent } from 'https-proxy-agent';
 
 const SEARCH_ENDPOINT = 'https://www.walmart.com/search?q={{query}}';

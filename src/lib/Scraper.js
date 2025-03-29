@@ -1,5 +1,4 @@
 import CDP from 'chrome-remote-interface';
-import fetch from 'node-fetch';
 import { spawn } from 'child_process';
 import { promises as fs } from 'fs';
 
@@ -10,6 +9,9 @@ class Scraper {
         this.browser = null;
         this.id = crypto.randomUUID();
         this.intercepting = false;
+        this.cache = {
+            requests: []
+        };
     }
 
     async log(msg) {
@@ -28,7 +30,8 @@ class Scraper {
         const browser = spawn(chromium_path, [
             `--remote-debugging-port=${this.port}`,
             `--incognito`,
-            `--disk-cache-dir=/dev/null`
+            `--disk-cache-dir=/dev/null`,
+            //`--headless`
 
         ]);
 
@@ -51,55 +54,60 @@ class Scraper {
         await Promise.all([
             this.client.Network.enable(),
             this.client.Page.enable(),
+            this.client.Runtime.enable()
         ]);
         this.log(`CDP initiated`);
     }
 
-    async intercept_urls({ target, urls }) {
+    async cache_requests({ target, url }) {
         const requests = [];
 
         await this.client.Network.setRequestInterception({ patterns: [{ urlPattern: '*' }] });
 
         this.client.Network.requestIntercepted(async ({ interceptionId, request}) => {
-                
-            const modHeaders = request.headers;
-            modHeaders['sec-ch-ua'] = '" Not A;Brand";v="99", "Chromium";v="96", "Microsoft Edge";v="96"';
-            modHeaders['sec-ch-ua-platform'] = '"Windows"';
+                const modHeaders = request.headers;
+                modHeaders['User-Agent'] = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36";
+                modHeaders['sec-ch-ua'] = '" Not A;Brand";v="99", "Windows";v="96", "Chrome";v="96"';
+                modHeaders['sec-ch-ua-platform'] = '"Windows"';
 
-            if (request.url.includes(target)) {
-                requests.push({...request, headers: modHeaders});
-            }
-            await this.log(`${request.url} intercepted\n ${JSON.stringify(modHeaders)}`);
-            await this.client.Network.continueInterceptedRequest({ interceptionId, headeons: modHeaders });
-        });
-        
-         this.client.Network.responseReceived(async ({ requestId, response }) => {
-             this.log(JSON.stringify(response));
-            const contentType = response.headers['content-type'] || response.headers['Content-Type'] || '';
-            if (contentType.includes('application/json')) {
-                try {
-                    const { body, base64Encoded } = await this.client.Network.getResponseBody({ requestId });
-                    const decodedBody = base64Encoded ? Buffer.from(body, 'base64').toString('utf8') : body;
-                    jsonResponses.push({
-                        url: response.url,
-                        body: JSON.parse(decodedBody), // Parse JSON for easier use
-                        headers: response.headers
-                    });
-                    this.log(`Intercepted JSON response from ${response.url}`);
-                } catch (error) {
-                    this.log(`Failed to get JSON body for ${response.url}: ${error.message}`);
+                if (request.url.includes(target)) {
+                    this.cache.requests.push({...request, headers: modHeaders});
                 }
-            }
+
+                await this.log(`${request.url} intercepted\n ${JSON.stringify(modHeaders)}`);
+                await this.client.Network.continueInterceptedRequest({ interceptionId, headeons: modHeaders });
         });
 
+        await this.client.Page.navigate({ url });
+        await this.client.Page.loadEventFired();
+    }
 
-        for (const url of urls) {
-            await this.client.Page.navigate({ url });
-            await this.client.Page.loadEventFired();
-        }
+    async get_cache() {
+        return this.cache;
+    }
 
-        console.log(requests);
-        return requests;
+    async send_request({ url, headers }) {
+        const str_headers = JSON.stringify(headers);
+        const fetchScript = `
+                fetch('${url}', {
+                    method: 'GET',
+                    headers: ${str_headers}
+                })
+                .then(response => response.text())
+                .then(text => text)
+                .catch(error => error)
+        `;
+
+        // Execute the fetch in browser context
+        const result = await this.client.Runtime.evaluate({
+            expression: fetchScript,
+            awaitPromise: true // Wait for the Promise to resolve
+        });
+
+        // Get the result value
+        const fetchResult = result.result.value;
+
+        return fetchResult;
     }
 }
 

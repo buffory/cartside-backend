@@ -1,14 +1,13 @@
-import Publix from './Publix.js'
+import Kroger from './Kroger.js'
 import fs from 'fs';
 
 class Cluster {
     constructor() {
-        this.Publix = new Publix({ port: 9222  });
+        this.Kroger = new Kroger({ port: 9222  });
     }
 
     async init() {
-        const res = await this.Publix.query({ query: 'water' });
-        fs.writeFile('res.txt', res, error => console.error(error));
+        const res = await this.Kroger.query({ query: 'water' });
     }
 }
 

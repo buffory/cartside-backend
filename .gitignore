@@ -1,6 +1,2 @@
-/node_modules
+src/node_modules
 src/include
-src/lib
-src/lib64
-src/bin
-src/include/chrome-linux
