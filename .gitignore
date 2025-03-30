@@ -1,2 +1,7 @@
-src/node_modules
-src/include
+node_modules
+include
+database/lib
+database/lib64
+database/bin
+database/__pycache__
+database/include

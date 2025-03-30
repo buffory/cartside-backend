@@ -1,7 +1,7 @@
 import express from 'express'
 import dotenv from 'dotenv'
 
-import Cluster from './lib/Cluster.js';
+import Cluster from './scrapers/Cluster.js';
 
 dotenv.config()
 
