@@ -158,6 +158,26 @@ class ProductDatabase:
             
             self.conn.commit()
 
+    def query_product(self, product: str):
+        cursor = self.conn.cursor()
+        results = []
+        try:
+            query = f"""
+                SELECT name, price
+                FROM products
+                WHERE name ILIKE %s
+                ORDER BY price ASC
+                """
+
+            pattern = f"%{product}%"
+            cursor.execute(query, (pattern,))
+            results = cursor.fetchall()
+
+        finally:
+            cursor.close()
+        
+        return results
+
     def close(self):
         self.conn.close()
 
