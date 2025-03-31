@@ -1,9 +1,10 @@
-import json
+import json5
 import psycopg2
 from psycopg2.extras import execute_batch
 from bs4 import BeautifulSoup
-from typing import Dict, List
-from dotenv import load_dotenv
+from typing import Dict, List 
+from dotenv import load_dotenv 
+import re
 
 def safe_get(data, *keys, default=None):
     """Safely navigate nested dictionaries"""
@@ -14,33 +15,46 @@ def safe_get(data, *keys, default=None):
             return default
     return data
 
-# Walmart-specific extractor
-class WalmartProductExtractor:
+# Kroger-specific extractor
+class KrogerProductExtractor:
     @staticmethod
     def run(html_file):
         with open(html_file, 'r', encoding='utf-8') as f:
             content = f.read()
 
-        data = WalmartProductExtractor.extract_json(content)
+        data = KrogerProductExtractor.extract_json(content)
+        return data
 
-        if data == None:
-            return None
 
-        products = WalmartProductExtractor.extract_products(data)
-        return products
+       # products = KrogerProductExtractor.extract_products(data)
+       # return products
 
     @staticmethod
     def extract_json(html_content):
-        soup = BeautifulSoup(html_content, 'html.parser')
+       """Extracts the complete JSON data using more reliable regex"""
+       soup = BeautifulSoup(html_content, 'html.parser')
+       script = soup.find('script', string=re.compile('window.__INITIAL_STATE__')) 
+       if not script:
+           raise ValueError("Could not find window.__INITIAL_STATE__ in the HTML")
     
-        # walmart stores product json within a script tag with id __NEXT_DATA
-        next_data_script = soup.find('script', {'id': '__NEXT_DATA__'})
-        if next_data_script:
-            json_data = json.loads(next_data_script.string)
-            return json_data
-        else:
-            return None
-
+       # Extract all JSON-like objects using regex
+j      json_objects = []
+       json_pattern = re.compile(r'\{.*?\}(?=(?:\s*,\s*\{|$))', re.DOTALL)
+       
+       for match in json_pattern.finditer(script.string):
+           try:
+               # Clean the string and parse
+               json_str = match.group(0)
+               ## Handle escaped quotes and newlines
+               #json_str = json_str.replace('\\"', '"')
+               #json_str = json_str.replace('\\n', '')
+              #json_obj = json.loads(json_str)
+               json_objects.append(json_str)
+           except json.JSONDecodeError:
+               continue
+       
+       return json_objects
+      
     @staticmethod
     def extract_products(json_data):
      # Safely navigate the nested JSON structure
@@ -110,17 +124,17 @@ class WalmartProductExtractor:
 
 # Example Usage
 #if __name__ == "__main__":
-#    # Load Walmart data
+#    # Load Kroger data
 #    with open('next_data.json', 'r') as f:
 #        walmart_data = json.load(f)
 #    
 #    # Extract products
-#    walmart_products = WalmartProductExtractor.extract_products(walmart_data)
+#    walmart_products = KrogerProductExtractor.extract_products(walmart_data)
 #    
 #    # Save to database
 #    db = ProductDatabase()
 #    try:
-#        db.save_products('Walmart', walmart_products)
-#        print(f"Successfully saved {len(walmart_products)} Walmart products")
+#        db.save_products('Kroger', walmart_products)
+#        print(f"Successfully saved {len(walmart_products)} Kroger products")
 #    finally:
 #        db.close()

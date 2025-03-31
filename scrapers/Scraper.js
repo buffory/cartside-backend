@@ -60,7 +60,7 @@ class Scraper {
     }
 
     async scrapeHTML({ url }) {
-        const host_name = new URL(url).hostname;
+        const host_name = new URL(url).hostname.split('.')[1]
         await this.client.Page.navigate({ url });
         await this.client.Page.loadEventFired();
 
@@ -70,9 +70,7 @@ class Scraper {
         });
 
         const htmlContent = result.result.value;
-        await fs.writeFile(`${host_name}-{crypto.randomUUID()}.html`, htmlContent, 'utf-8');
-        console.log(`${url} scraped`);
-        this.log(`${url} scraped`);
+        return htmlContent
     }
         
 
