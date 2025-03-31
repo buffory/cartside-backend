@@ -163,16 +163,30 @@ class ProductDatabase:
         results = []
         try:
             query = f"""
-                SELECT name, price
+                SELECT *
                 FROM products
                 WHERE name ILIKE %s
                 ORDER BY price ASC
+                LIMIT 10
                 """
 
             pattern = f"%{product}%"
             cursor.execute(query, (pattern,))
             results = cursor.fetchall()
+             # Get column names from cursor description
+            column_names = [desc[0] for desc in cursor.description]
+            
+            # Convert each row to a dictionary with column names as keys
+            products = []
+            for row in results:
+                row_dict = dict(zip(column_names, row))
+                # Convert any non-JSON-serializable types if needed (e.g., Decimal to float)
+                for key, value in row_dict.items():
+                    if isinstance(value, (psycopg2._psycopg.Decimal,)):
+                        row_dict[key] = float(value)
+                products.append(row_dict)           
 
+            return products
         finally:
             cursor.close()
         
