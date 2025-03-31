@@ -17,29 +17,29 @@ class ProductDatabase:
             host=os.getenv('DB_HOST'),
             port=os.getenv('DB_PORT')
         )
-        self._ensure_retailers()
+#        self._ensure_retailers()
 
-    def _ensure_retailers(self):
-        """Ensure common retailers exist in the database"""
-        with self.conn.cursor() as cursor:
-            cursor.execute("""
-                INSERT INTO retailers (name, base_url) 
-                VALUES ('Walmart', 'https://www.walmart.com')
-                ON CONFLICT (name) DO NOTHING
-            """)
-            self.conn.commit()
-
-    def _get_retailer_id(self, retailer_name: str) -> int:
-        with self.conn.cursor() as cursor:
-            cursor.execute(
-                "SELECT retailer_id FROM retailers WHERE name = %s",
-                (retailer_name,)
-            )
-            return cursor.fetchone()[0]
+#    def _ensure_retailers(self):
+#        """Ensure common retailers exist in the database"""
+#        with self.conn.cursor() as cursor:
+#            cursor.execute("""
+#                INSERT INTO retailers (name, base_url) 
+#                VALUES ('Walmart', 'https://www.walmart.com')
+#                ON CONFLICT (name) DO NOTHING
+#            """)
+#            self.conn.commit()
+#
+#    def _get_retailer_id(self, retailer_name: str) -> int:
+#        with self.conn.cursor() as cursor:
+#            cursor.execute(
+#                "SELECT retailer_id FROM retailers WHERE name = %s",
+#                (retailer_name,)
+#            )
+#            return cursor.fetchone()[0]
 
     def save_products(self, retailer_name: str, products: List[Dict]):
         """Generic product saving method that works for any retailer"""
-        retailer_id = self._get_retailer_id(retailer_name)
+#        retailer_id = self._get_retailer_id(retailer_name)
         
         # Prepare data for batch insertion
         product_data = []
@@ -51,7 +51,7 @@ class ProductDatabase:
             # Main product record
             product_data.append({
                 'product_id': product['id'],
-                'retailer_id': retailer_id,
+                'retailer': retailer_name,
                 'name': product['name'],
                 'brand': product['brand'],
                 'description': product.get('description'),
@@ -94,8 +94,8 @@ class ProductDatabase:
             # Insert products
             execute_batch(cursor, """
                 INSERT INTO products 
-                (product_id, retailer_id, name, brand, description, category)
-                VALUES (%(product_id)s, %(retailer_id)s, %(name)s, %(brand)s, 
+                (product_id, retailer, name, brand, description, category)
+                VALUES (%(product_id)s, %(retailer)s, %(name)s, %(brand)s, 
                         %(description)s, %(category)s)
                 ON CONFLICT (product_id) DO UPDATE SET
                     name = EXCLUDED.name,

@@ -1,4 +1,4 @@
-import json5
+import json
 import psycopg2
 from psycopg2.extras import execute_batch
 from bs4 import BeautifulSoup
@@ -23,99 +23,129 @@ class KrogerProductExtractor:
             content = f.read()
 
         data = KrogerProductExtractor.extract_json(content)
-        return data
+        return(data)
 
 
        # products = KrogerProductExtractor.extract_products(data)
        # return products
 
     @staticmethod
-    def extract_json(html_content):
-       """Extracts the complete JSON data using more reliable regex"""
+    def extract_json(html_content: str) -> Dict:
+       """Extract the __INITIAL_STATE__ from script tags"""
        soup = BeautifulSoup(html_content, 'html.parser')
-       script = soup.find('script', string=re.compile('window.__INITIAL_STATE__')) 
-       if not script:
-           raise ValueError("Could not find window.__INITIAL_STATE__ in the HTML")
-    
-       # Extract all JSON-like objects using regex
-j      json_objects = []
-       json_pattern = re.compile(r'\{.*?\}(?=(?:\s*,\s*\{|$))', re.DOTALL)
+       scripts = soup.find_all('script')
        
-       for match in json_pattern.finditer(script.string):
-           try:
-               # Clean the string and parse
-               json_str = match.group(0)
-               ## Handle escaped quotes and newlines
-               #json_str = json_str.replace('\\"', '"')
-               #json_str = json_str.replace('\\n', '')
-              #json_obj = json.loads(json_str)
-               json_objects.append(json_str)
-           except json.JSONDecodeError:
+       for script in scripts:
+           if not script.string:
                continue
-       
-       return json_objects
-      
+               
+           # Look for the INITIAL_STATE pattern
+           match = re.search(r'window\.__INITIAL_STATE__\s*=\s*JSON\.parse\(([\'"])(.*?)\1\)', script.string)
+           if match:
+               try:
+                   # The JSON string might contain escaped quotes
+                   json_str = match.group(2).replace(r"\'", "'")
+                   json_str = json_str.replace(r"\\", "\\")
+                   return json.loads(json_str)
+               except json.JSONDecodeError as e:
+                   # Print error details and surrounding text
+                   print(f"JSON parsing error: {e}")
+                   print(f"Error at position {e.pos} (char {e.pos})")
+                   
+                   # Show 50 characters before and after the error position
+
+                   error_snippet = json_str[start_pos:end_pos]
+                   
+                   # Indicate where the error occurs with markers
+                   snippet_with_marker = (
+                       error_snippet[:e.pos - start_pos] + 
+                       "❌>>HERE<<❌" + 
+                       error_snippet[e.pos - start_pos:]
+                   )
+                   
+                   print("Error snippet:")
+                   print(snippet_with_marker)
+                   raise  # Re-raise the exception if you want the program to stop
+                  
+       return {} 
+
     @staticmethod
     def extract_products(json_data):
-     # Safely navigate the nested JSON structure
-        item_stacks = safe_get(json_data, 'props', 'pageProps', 'initialData', 'searchResult', 'itemStacks', default=[])
-        
-        if not item_stacks:
-            print("Warning: No itemStacks found in JSON data")
-            return []
-        
-        # Get items from the first stack (or empty list if none exists)
-        items = safe_get(item_stacks[0], 'items', default=[])
-        
-        if not items:
-            print("Warning: No items found in the first itemStack")
-            return []
-        
+        """Extract products from Kroger's initial state"""
         products = []
         
-        for item in items:
+        # Navigate through Kroger's specific structure
+        product_data = safe_get(
+            json_data,
+            'search', 'searchAll', 'response', 'products',
+            default=[]
+        )
+        
+        for item in product_data:
             if not isinstance(item, dict):
                 continue
-        
-        for item in items:
-            if item.get('__typename') != 'Product':
-                continue
                 
+            # Handle pricing - Kroger often has promo prices
+            price_info = item.get('price', {})
+            current_price = price_info.get('regular')
+            promo_price = price_info.get('promo')
+            
             products.append({
-                'id': item.get('usItemId'),
-                'name': item.get('name'),
+                'id': item.get('productId'),
+                'upc': item.get('upc'),
+                'name': item.get('description'),
                 'brand': item.get('brand'),
-                'price': item.get('price', 0),
-                'original_price': None,  # Could extract from wasPrice if available
-                'rating': item.get('rating', {}).get('averageRating'),
-                'review_count': item.get('rating', {}).get('numberOfReviews'),
-                'image_url': item.get('image'),
-                'product_url': f"https://www.walmart.com{item.get('canonicalUrl', '')}",
-               # 'is_bestseller': 'Best seller' in [b.get('text') for b in item.get('badges', {}).get('flags', [])],
-               # 'is_popular': 'Popular pick' in [b.get('text') for b in item.get('badges', {}).get('flags', [])],
-               # 'in_stock': item.get('availabilityStatusDisplayValue') == 'In stock',
-                'description': item.get('shortDescription', '').replace('<li>', '').replace('</li>', ' '),
-                'category': '/'.join(item.get('category', {}).get('categoryPathId', '').split(':')[1:]),
-                'fulfillment_options': [
-                    {
-                        'type': group.get('key', '').replace('FF_', ''),
-                        'time': group.get('slaText', '')
-                    } 
-                    for group in item.get('fulfillmentBadgeGroups', [])
-                    if isinstance(group, dict)
-                ],
-                'specifications': {
-                    'nutritional_content': [
-                        val['id'] for val in 
-                        next((f['values'] for f in item.get('configs', {}).get('allSortAndFilterFacets', [])
-                             if f.get('name') == 'Nutritional Content'), [])
-                    ],
-                    'milk_type': item.get('catalogProductType')
-                }
+                'price': float(promo_price or current_price or 0),
+                'original_price': float(current_price) if current_price and promo_price else None,
+                'size': item.get('size'),
+                'image_url': KrogerProductExtractor.get_image_url(item),
+                'product_url': f"https://www.kroger.com/p/{(item.get('link'))}",
+                'is_on_sale': bool(promo_price),
+                'in_stock': item.get('inventory', {}).get('stockLevel') != 'out_of_stock',
+                'category': safe_get(item, 'categories', 0, 'description'),
+                'rating': float(item.get('averageRating', 0)),
+                'review_count': int(item.get('reviewCount', 0)),
+                'fulfillment_options': KrogerProductExtractor.get_fulfillment_options(item)
             })
         
         return products
+
+    @staticmethod
+    def get_fulfillment_options(item: Dict) -> List[Dict]:
+        """Extract fulfillment options (pickup/delivery)"""
+        options = []
+        fulfillment = item.get('fulfillment', {})
+        
+        if fulfillment.get('availableForPickup'):
+            options.append({
+                'type': 'pickup',
+                'timeframe': fulfillment.get('pickupDate')
+            })
+            
+        if fulfillment.get('availableForDelivery'):
+            options.append({
+                'type': 'delivery',
+                'timeframe': fulfillment.get('deliveryDate')
+            })
+            
+        if fulfillment.get('availableForShipping'):
+            options.append({
+                'type': 'shipping',
+                'timeframe': fulfillment.get('shippingEstimate')
+            })
+            
+        return options
     
+    @staticmethod
+    def get_image_url(item: Dict) -> str:
+        """Extract primary product image"""
+        images = item.get('images', [])
+        if images and isinstance(images, list):
+            for img in images:
+                if img.get('perspective') == 'front':
+                    return img.get('sizes', [{}])[0].get('url', '')
+        return ''
+
     @staticmethod
     def clean_description(desc):
         return desc.replace('<li>', '• ').replace('</li>', '\n').strip()
