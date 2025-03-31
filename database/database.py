@@ -52,6 +52,9 @@ class ProductDatabase:
             product_data.append({
                 'product_id': product['id'],
                 'retailer': retailer_name,
+                'product_url': product['product_url'],
+                'price': product['price'],
+                'image_url': product['image_url'],
                 'name': product['name'],
                 'brand': product['brand'],
                 'description': product.get('description'),
@@ -94,14 +97,17 @@ class ProductDatabase:
             # Insert products
             execute_batch(cursor, """
                 INSERT INTO products 
-                (product_id, retailer, name, brand, description, category)
+                (product_id, retailer, name, brand, description, category, price, product_url, image_url)
                 VALUES (%(product_id)s, %(retailer)s, %(name)s, %(brand)s, 
-                        %(description)s, %(category)s)
+                        %(description)s, %(category)s, %(price)s, %(product_url)s, %(image_url)s)
                 ON CONFLICT (product_id) DO UPDATE SET
                     name = EXCLUDED.name,
                     brand = EXCLUDED.brand,
                     description = EXCLUDED.description,
                     category = EXCLUDED.category,
+                    price = EXCLUDED.price,
+                    product_url = EXCLUDED.product_url,
+                    image_url = EXCLUDED.image_url,
                     last_updated = CURRENT_TIMESTAMP
             """, product_data)
             

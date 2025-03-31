@@ -23,11 +23,10 @@ class KrogerProductExtractor:
             content = f.read()
 
         data = KrogerProductExtractor.extract_json(content)
-        return(data)
 
 
-       # products = KrogerProductExtractor.extract_products(data)
-       # return products
+        products = KrogerProductExtractor.extract_products(data)
+        return products
 
     @staticmethod
     def extract_json(html_content: str) -> Dict:
@@ -77,36 +76,42 @@ class KrogerProductExtractor:
         # Navigate through Kroger's specific structure
         product_data = safe_get(
             json_data,
-            'search', 'searchAll', 'response', 'products',
+            'calypso', 'useCases', 'getProducts', 'search-grid', 'response', 'data', 'products',
             default=[]
         )
+        #print(json_data.get('calypso').get('getProducts'))
         
         for item in product_data:
             if not isinstance(item, dict):
                 continue
                 
+            #products.append(item)
             # Handle pricing - Kroger often has promo prices
-            price_info = item.get('price', {})
-            current_price = price_info.get('regular')
-            promo_price = price_info.get('promo')
-            
-            products.append({
-                'id': item.get('productId'),
-                'upc': item.get('upc'),
-                'name': item.get('description'),
-                'brand': item.get('brand'),
-                'price': float(promo_price or current_price or 0),
-                'original_price': float(current_price) if current_price and promo_price else None,
-                'size': item.get('size'),
-                'image_url': KrogerProductExtractor.get_image_url(item),
-                'product_url': f"https://www.kroger.com/p/{(item.get('link'))}",
-                'is_on_sale': bool(promo_price),
-                'in_stock': item.get('inventory', {}).get('stockLevel') != 'out_of_stock',
-                'category': safe_get(item, 'categories', 0, 'description'),
-                'rating': float(item.get('averageRating', 0)),
-                'review_count': int(item.get('reviewCount', 0)),
-                'fulfillment_options': KrogerProductExtractor.get_fulfillment_options(item)
-            })
+            #price_info = item.get('price', {})
+            #current_price = price_info.get('regular')
+            #promo_price = price_info.get('promo')
+            #
+            try:
+                products.append({
+                    'id': item.get('id'),
+                #    'upc': item.get('upc'),
+                    'description': item.get('item').get('romanceDescription'),
+                    'name': item.get('item').get('description'),
+                    'brand': item.get('item').get('brand').get('name'),
+                    'price': item.get('price').get('storePrices').get('regular').get('defaultDescription'),
+                #    'original_price': float(current_price) if current_price and promo_price else None,
+                #    'size': item.get('size'),
+                    'image_url': item.get('item').get('images')[0].get('url'),
+                    'product_url': item.get('item').get('shareLink'),
+                #    'is_on_sale': bool(promo_price),
+                #    'in_stock': item.get('inventory', {}).get('stockLevel') != 'out_of_stock',
+                #    'category': safe_get(item, 'categories', 0, 'description'),
+                #    'rating': float(item.get('averageRating', 0)),
+                #    'review_count': int(item.get('reviewCount', 0)),
+                #    'fulfillment_options': KrogerProductExtractor.get_fulfillment_options(item)
+                })
+            except AttributeError:
+                continue
         
         return products
 
