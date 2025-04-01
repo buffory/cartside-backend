@@ -10,8 +10,6 @@ class Cluster {
 
     async init() {
         await this.Kroger.init();
-        const res = await this.Kroger.scrapeJson({ url: 'https://www.kroger.com/search?query=milk&searchType=default_search' });
-        console.log(res);
         //await this.Walmart.init();
         //await this.Walmart.scrapeHTML({ url: 'https://www.walmart.com/search?q=milk' });
     }

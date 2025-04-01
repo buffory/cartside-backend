@@ -20,7 +20,7 @@ class Scraper {
     }
 
     async init() {
-        await this.init_browser({ chromium_path: 'include/chrome-linux/chrome',
+        await this.init_browser({ chromium_path: './scrapers/chrome-linux/chrome',
                                   user_data_dir: `${this.id}-tmp` });
         await this.init_CDP();
     }
@@ -70,7 +70,17 @@ class Scraper {
         });
 
         const htmlContent = result.result.value;
-        return htmlContent
+        const crypt = crypto.randomUUID();
+        const file_name = `data/${host_name}-${crypt}.html`;
+        const file_url = new URL(file_name, import.meta.url);
+        try {
+
+            await fs.writeFile(file_url, htmlContent, err => console.error(err));
+            return file_url.href.replace('file://', '');
+        } catch (e) {
+            console.error(e);
+            return null;
+        }
     }
         
 

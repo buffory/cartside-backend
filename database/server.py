@@ -5,6 +5,7 @@ import os
 from dotenv import load_dotenv
 
 from database import ProductDatabase
+from kroger import KrogerProductExtractor
 
 load_dotenv()
 
@@ -21,6 +22,12 @@ def get_similiar():
     
     products = db.query_product(name)
     return jsonify(products), 200
+
+@app.route("/save/kroger", methods=["POST"])
+def save_data():
+    scrape_path = request.path
+    products = KrogerProductExtractor.run(scraped_path)
+    print(products)
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=8000, debug=True)

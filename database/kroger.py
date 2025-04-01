@@ -22,6 +22,7 @@ class KrogerProductExtractor:
         with open(html_file, 'r', encoding='utf-8') as f:
             content = f.read()
 
+
         data = KrogerProductExtractor.extract_json(content)
 
 
@@ -80,11 +81,11 @@ class KrogerProductExtractor:
             default=[]
         )
         #print(json_data.get('calypso').get('getProducts'))
-        
         for item in product_data:
             if not isinstance(item, dict):
                 continue
                 
+            print(item)
             #products.append(item)
             # Handle pricing - Kroger often has promo prices
             #price_info = item.get('price', {})

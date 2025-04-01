@@ -1,4 +1,5 @@
 node_modules
+.env
 include
 database/lib
 database/lib64
