@@ -1,56 +1,40 @@
 import Scraper from './Scraper.js';
-import { jsonrepair } from 'jsonrepair';
-import axios from 'axios';
-import { JSDOM } from 'jsdom';
+import { spawn } from 'child_process';
 
 const SEARCH_ENDPOINT = 'https://www.kroger.com/search?query={{query}}&searchType=default';
+const PYTHON_PATH = 'database/bin/python';
+const SCRIPT = 'kroger_save.py';
 
 class Kroger extends Scraper {
     constructor({ port }) {
         super({ port });
     }
 
-    async intercept_query({ query }) {
-        await this.cache_requests({ target: 'products-search', url: SEARCH_ENDPOINT.replace('{{query}}', query) });
-        return this.cache.requests[0];
-    }
+    async scrape({ product }) {
+        try {
+            const scraped_data = this.scrapeHTML({ url: SEARCH_ENDPOINT.replace('{{query}}', query) });
 
-    async query({ query }) {
-        await this.init();
-        const gtins_request = await this.intercept_query({ query });
-        const url = gtins_request.url.replace('offset=0', 'offset=24');
-        const res = JSON.parse(await this.send_request({ url, headers: gtins_request.headers }));
-        const gtins = res['data']['productsSearch'].map(product => product.upc);
-        console.log(gtins);
-    }
-
-    async scrapeJson({ url }) {
-        const html_content = await this.scrapeHTML({ url });
-        const dom = new JSDOM(html_content);
-        const scripts = dom.window.document.getElementsByTagName('script');
-        console.log(scripts.length);
-
-        for (let script of scripts) {
-            if (script.textContent.includes('JSON.parse')) {
-                const scriptText = script.textContent;
-                const start = scriptText.indexOf("JSON.parse('") + 12;
-                const end = scriptText.lastIndexOf("')");
-                if (start > -1 && end > 1) {
-                    let json_str = scriptText.slice(start, end);
-                    try {
-                        const fixedJson = jsonrepair(json_str);
-                        return JSON.parse(fixedJson);
-                    } catch (e) {
-                        console.error(e)
-                        return null;
-
-                    }
-                }
-            }
+            if (!scraped_data) {
+                return null;
+            });
+            const res = await save({ htmlPath: scraped_data });
+            console.log(res);
+        } catch (e) {
+            console.error(e);
+            return null;
         }
-        console.error('no json found');
-        return null;
     }
+
+    async save({ htmlPath }) {
+        return new Promise((resolve, reject) => {
+            const scriptProcess = spawn(PYTHON_PATH, [SCRIPT, htmlPath]);
+            let result = '';
+            let error = '';
+
+            scriptProcess.stdout.on('data', data => result += data.toString());
+            scriptProcess.stderr.on('data', data => error += data.toString());
+            scriptProcess.on('close', code => code !=0 ? reject(new Error(error)) : resolve(result));
+        });
 }
 
 export default Kroger;
