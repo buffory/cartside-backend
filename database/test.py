@@ -1,5 +1,9 @@
-from kroger import Kroger
+import subprocess
 
-k = Kroger(9222)
-results = k.scrape(query='milk')
-print(results)
+from browser import Browser
+
+import threading
+
+b = Browser(port=9222)
+subprocess.run(['bin/python', 'walmart.py', 'milk', '9222'])
+

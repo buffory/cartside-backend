@@ -1,4 +1,4 @@
-import pychrome
+import PyChromeDevTools
 import subprocess
 import os
 import time
@@ -8,33 +8,19 @@ import uuid
 
 class Scraper:
     def __init__(self, port):
-        #try:
-        #    self.browser = pychrome.Browser(url=f"http://localhost:{port}")
-        #except ConnectionError:
-        print(f"browser not found at {port}, starting a new one")
-        subprocess.Popen(["./chrome-linux/chrome", f"--remote-debugging-port={port}", "--disk-cache-dir=/dev/null"], preexec_fn=os.setsid);
-
-        while True:
-            try:
-                response = requests.get(f"http://localhost:{port}/json/version")
-                if response.ok:
-                    print(f"browser found on {port}")
-                    self.browser = pychrome.Browser(url=f"http://localhost:{port}")
-                    break
-            except:
-                time.sleep(1)
+        self.chrome = PyChromeDevTools.ChromeInterface(host="localhost", port=port)
 
     def scrape(self, url):
-        tab = self.browser.new_tab()
-        tab.start()
+        self.chrome.Page.enable()
+        self.chrome.Runtime.enable()
+        self.chrome.Page.navigate(url=url)
+        self.chrome.wait_event("Page.loadEventFired", timeout=60)
 
-        tab.Page.navigate(url=url)
-        tab.wait(5)
-        tab.Runtime.enable()
-        result = tab.Runtime.evaluate(expression="document.documentElement.outerHTML")
+        result, messages = self.chrome.Runtime.evaluate(expression="document.documentElement.outerHTML")
         file_path = f"data/{uuid.uuid4()}.html"
+        print(list(result['result']['result'].keys()))
         with open(file_path, 'w') as f:
-            f.write(result['result']['value'])
+            f.write(result['result']['result']['value'])
         print(f"saved {url[:20]}... to {file_path}")
 
         return file_path
