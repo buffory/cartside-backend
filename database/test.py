@@ -1,3 +1,5 @@
-from scraper import Scraper 
-sc = Scraper(port=9222)
-sc.scrape("https://example.com")
+from kroger import Kroger
+
+k = Kroger(9222)
+results = k.scrape(query='milk')
+print(results)

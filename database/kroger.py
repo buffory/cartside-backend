@@ -4,8 +4,11 @@ from psycopg2.extras import execute_batch
 from bs4 import BeautifulSoup
 from typing import Dict, List 
 from dotenv import load_dotenv 
-import PyChromeDevTools
 import re
+
+from scraper import Scraper
+
+PRODUCTS_URL = "https://www.kroger.com/search?query=QUERY"
 
 def safe_get(data, *keys, default=None):
     """Safely navigate nested dictionaries"""
@@ -17,17 +20,18 @@ def safe_get(data, *keys, default=None):
     return data
 
 # Kroger-specific extractor
-class KrogerProductExtractor:
-    @staticmethod
-    def run(html_file):
-        with open(html_file, 'r', encoding='utf-8') as f:
+class Kroger:
+    def __init__(self, port):
+        self.scraper = Scraper(port)
+
+    def scrape(self, query):
+        html_path = self.scraper.scrape(PRODUCTS_URL.replace("QUERY", query))
+        
+        with open(html_path, "r", encoding="utf-8") as f:
             content = f.read()
 
-
-        data = KrogerProductExtractor.extract_json(content)
-
-
-        products = KrogerProductExtractor.extract_products(data)
+        product_json = Kroger.extract_json(content)
+        products = Kroger.extract_products(product_json)
         return products
 
     @staticmethod
