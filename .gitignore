@@ -1,6 +1,8 @@
 node_modules
 .env
+scrapers/chrome-linux
 include
+database/data
 database/lib
 database/lib64
 database/bin

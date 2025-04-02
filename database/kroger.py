@@ -4,6 +4,7 @@ from psycopg2.extras import execute_batch
 from bs4 import BeautifulSoup
 from typing import Dict, List 
 from dotenv import load_dotenv 
+import PyChromeDevTools
 import re
 
 def safe_get(data, *keys, default=None):
