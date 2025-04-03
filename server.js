@@ -1,7 +1,8 @@
 import dotenv from 'dotenv'
 import cors from 'cors';
+import express from 'express';
 
-import Cluster from './scrapers/Cluster.js';
+import products_route from './routes/products.js';
 
 dotenv.config()
 
@@ -12,17 +13,11 @@ app.use(cors({
     origins: "*"
 }));
 
+app.use('/products', products_route);
+
 app.listen(port, async () => {
     //const cluster = new Cluster();
     //await cluster.init();
-    console.log(`Cartside backend listening on ${port}`)
-})
-
-app.get('/products/search', async (req, res) => {
-    const name  = req.query.name;
-    const db_res = await fetch(`http://localhost:8000/products/similar?name=${name}`);
-    const data = await db_res.json()
-    console.log(data);
-    return res.status(200).json(data);
+    console.log(`Cartside backend listening on ${port}`);
 });
 
