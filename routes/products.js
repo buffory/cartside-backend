@@ -20,7 +20,7 @@ router.get('/', async (req, res) => {
     try {
         const result = await client.query(`SELECT * FROM products WHERE name ILIKE '%${product}%' ORDER BY price ASC LIMIT 10`);
         await client.end();
-        return await res.status(200).json(result);
+        return await res.status(200).json(result.rows);
     } catch (err) {
         console.error(err);
         await client.end();
@@ -28,4 +28,4 @@ router.get('/', async (req, res) => {
     }
 });
 
-export default router
+export default router;
