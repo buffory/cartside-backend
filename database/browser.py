@@ -9,7 +9,7 @@ class Browser:
             f"chrome-linux/chrome",
             f"--remote-debugging-port={port}",
             f"--disk-cache-dir=/dev/null",
-            "--remote-allow-origins=*"
+            #"--remote-allow-origins=*"
         ], preexec_fn=os.setsid)
 
         if self.chrome:

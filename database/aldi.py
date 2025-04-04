@@ -2,6 +2,7 @@ import json
 import psycopg2
 from psycopg2.extras import execute_batch
 from bs4 import BeautifulSoup
+import requests
 from typing import Dict, List 
 from dotenv import load_dotenv 
 import sys
@@ -10,7 +11,7 @@ import re
 from scraper import Scraper
 from database import ProductDatabase
 
-PRODUCTS_URL = "https://new.aldi.us/results?q=QUERY"
+PRODUCTS_URL = "https://api.aldi.us/v3/product-search?currency=USD&serviceType=pickup&q=QUERY&limit=60&offset=0&sort=relevance&testVariant=A&servicePoint=440-018"
 
 def safe_get(data, *keys, default=None):
     """Safely navigate nested dictionaries"""
@@ -23,16 +24,15 @@ def safe_get(data, *keys, default=None):
 
 # Kroger-specific extractor
 
-def scrape(html_path="", query=None, port=None,):
-    if query != None and port != None:
-        sc = Scraper(port)
-        html_path = sc.scrape(PRODUCTS_URL.replace("QUERY", query))
-    
-    with open(html_path, "r", encoding="utf-8") as f:
-        content = f.read()
+def scrape(query):
+    content = ''
+    response = requests.get(PRODUCTS_URL.replace('QUERY', query))
+    if response:
+        data = response.json()
+    else:
+        return response
 
-    product_json = extract_json(content)
-    products = extract_products(product_json)
+    products = extract_products(data)
     return products
 
 
@@ -78,62 +78,18 @@ def extract_products(json_data: List) -> List[Dict]:
     
     # ALDI's array alternates between product metadata and related objects
     # We need to iterate and group related data
-    i = 0
-    while i < len(json_data):
-        # Look for product identifier (SKU-like string)
-        if isinstance(json_data[i], str) and json_data[i].startswith('00000000'):
-            sku = json_data[i]
-            i += 1
-            # Next item should be the name
-            if i < len(json_data) and isinstance(json_data[i], str):
-                name = json_data[i]
-                i += 1
-                # Next item might be URL slug or price object
-                brand = "Unknown"  # ALDI data doesn't consistently provide brand here
-                price = None
-                image_url = None
-                
-                # Look for price object
-                while i < len(json_data):
-                    if isinstance(json_data[i], dict) and 'amount' in json_data[i]:
-                        price = json_data[i]['amount'] / 100  # Convert cents to dollars
-                        i += 1
-                        break
-                    i += 1
-                
-                # Look for image URL in assets
-                while i < len(json_data):
-                    if isinstance(json_data[i], list):
-                        for asset in json_data[i]:
-                            if isinstance(asset, dict) and 'url' in asset:
-                                image_url = asset['url'].replace('{width}', '300')  # Default width
-                                break
-                        i += 1
-                        break
-                    i += 1
-                
-                # Look for brand in subsequent dict
-                while i < len(json_data):
-                    if isinstance(json_data[i], dict) and 'brandName' in json_data[i]:
-                        brand = json_data[i]['brandName']
-                        i += 1
-                        break
-                    i += 1
-                
-                # Add product to list
-                products.append({
-                    'id': sku,
-                    'name': name,
-                    'brand': brand,
-                    'price': price,
-                    'image_url': image_url,
-                    'product_url': f"https://www.aldi.us/en/products/{sku}"  # Placeholder URL
-                })
-            else:
-                break
-        else:
-            i += 1
-    
+    products_arr = json_data.get('data')
+
+    for product_obj in products_arr:
+        products.append({
+            'id': product_obj.get('sku'),
+            'brand': product_obj.get('brandName'),
+            'name': product_obj.get('name'),
+            'price': product_obj.get('price').get('amountRelevantDisplay'),
+            'image_url': product_obj.get('assets')[0].get('url').replace('{width}', '500').replace("{slug}", product_obj.get('urlSlugText')),
+            'product_url': f"https://new.aldi.us/product/{product_obj.get('urlSlugText')}"
+        })
+
     return products
 def get_fulfillment_options(item: Dict) -> List[Dict]:
     """Extract fulfillment options (pickup/delivery)"""
@@ -174,10 +130,9 @@ def clean_description(desc):
 
 if __name__ == "__main__":
    product = sys.argv[1]
-   port = sys.argv[2]
 
-   products = scrape(query=product, port=port)
+   products = scrape(query=product)
    print(f"{len(products)} results for {product}")
    db = ProductDatabase()
-   db.save_products(retailer_name="Kroger", products=products)
+   db.save_products(retailer_name="Aldi", products=products)
 
