@@ -8,13 +8,25 @@ import uuid
 
 class Scraper:
     def __init__(self, port):
-        self.chrome = PyChromeDevTools.ChromeInterface(host="localhost", port=port)
+        while True:
+            try:
+                response = requests.get(f"http://localhost:{port}/json/version")
+                if response.ok:
+                    self.chrome = PyChromeDevTools.ChromeInterface(host="localhost", port=port)
+                    print(f"connected to browser: {port}")
+                    break
+            except:
+                print('browser not found at {port}, retrying')
+                time.sleep(1)
+
 
     def scrape(self, url):
         self.chrome.Page.enable()
         self.chrome.Runtime.enable()
+        print(f"navigating to {url}")
         self.chrome.Page.navigate(url=url)
         self.chrome.wait_event("Page.loadEventFired", timeout=60)
+        print('success')
 
         result, messages = self.chrome.Runtime.evaluate(expression="document.documentElement.outerHTML")
         file_path = f"data/{uuid.uuid4()}.html"
