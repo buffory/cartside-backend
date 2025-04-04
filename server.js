@@ -3,7 +3,6 @@ import cors from 'cors';
 import express from 'express';
 
 import products_route from './routes/products.js';
-import maps_route from './routes/maps.js';
 
 dotenv.config()
 
@@ -16,7 +15,6 @@ app.use(cors({
 }));
 
 app.use('/products', products_route);
-app.use('/maps', maps_route);
 
 app.listen(port, async () => {
     //const cluster = new Cluster();
